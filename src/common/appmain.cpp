@@ -25,6 +25,7 @@
 #include "eeprom.h"
 #include "safe_state.h"
 #include "crc32.h"
+#include "ff.h"
 #include "dump.h"
 
 #include <Arduino.h>

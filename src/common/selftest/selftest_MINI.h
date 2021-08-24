@@ -109,7 +109,7 @@ protected:
     CSelftestPart_Heater *m_pHeater_Nozzle;
     CSelftestPart_Heater *m_pHeater_Bed;
     FSM_Holder *m_pFSM;
-    int m_fd;
+    FIL m_fil;
     bool m_filIsValid;
     SelftestHomeState_t m_HomeState;
 };

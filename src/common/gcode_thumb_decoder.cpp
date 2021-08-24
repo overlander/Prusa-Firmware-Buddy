@@ -33,14 +33,15 @@ bool SLine::IsEndThumbnail() const {
         std::min(sizeof(l), sizeof(thumbnailEnd)) - 1);
 }
 
-bool GCodeThumbDecoder::ReadByte(FILE *f, uint8_t &byte) {
-    return fread(&byte, 1, 1, f) == 1;
+bool GCodeThumbDecoder::ReadByte(FIL *f, uint8_t &byte) {
+    UINT br = 0;
+    return f_read(f, &byte, 1, &br) == FR_OK && br == 1;
 }
 
-bool GCodeThumbDecoder::ReadLine(FILE *f, SLine &line) {
+bool GCodeThumbDecoder::ReadLine(FIL *f, SLine &line) {
     uint8_t byte;
     for (;;) {
-        if (feof(f) || !ReadByte(f, byte))
+        if (f_eof(f) || !ReadByte(f, byte))
             return false;
         if (byte == '\n')
             break;
@@ -67,7 +68,7 @@ bool GCodeThumbDecoder::AppendBase64Chars(
     return true;
 }
 
-int GCodeThumbDecoder::Read(FILE *f, char *pc, int n) {
+int GCodeThumbDecoder::Read(FIL *f, char *pc, int n) {
     static const size_t MAX_READ_LINES = 2048; // treba 2K radek
     switch (state) {
     case States::Searching: {
@@ -98,7 +99,7 @@ int GCodeThumbDecoder::Read(FILE *f, char *pc, int n) {
     // [[fallthrough]];  // here is no break intentionally
     case States::Base64: {
         int i = 0; // spravne by to melo byt unsigned, ale chci eliminovat
-                   // warning i == n, pricemz n je definitoricky int
+            // warning i == n, pricemz n je definitoricky int
         for (;;) {
             // tady nemusim cist po radkach, akorat pak bych musel naprasit
             // automat na hledani ; thumbnail end, coz se mi nechce nicmene ten

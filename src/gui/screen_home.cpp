@@ -1,8 +1,7 @@
-// screen_home.cpp
+//screen_home.cpp
 #include "screen_home.hpp"
+#include "ff.h"
 #include "dbg.h"
-#include "stdio.h"
-#include "file_raii.hpp"
 
 #include "config.h"
 
@@ -67,7 +66,6 @@ screen_home_data_t::screen_home_data_t()
 {
     window_frame_t::ClrMenuTimeoutClose();
     window_frame_t::ClrOnSerialClose(); // don't close on Serial print
-    screen_filebrowser_data_t::SetRoot("/usb");
 
     header.SetIcon(IDR_PNG_home_shape_16px);
 #ifndef _DEBUG
@@ -119,7 +117,7 @@ void screen_home_data_t::windowEvent(EventLock /*has private ctor*/, window_t *s
                 usbInserted = true;
                 printBtnEna();
                 if (!usbWasAlreadyInserted) {
-                    w_buttons[0].SetFocus(); // print button
+                    w_buttons[0].SetFocus(); //print button
                     usbWasAlreadyInserted = true;
                 }
             }
@@ -140,7 +138,7 @@ void screen_home_data_t::windowEvent(EventLock /*has private ctor*/, window_t *s
 
         // we are using marlin variables for filename and filepath buffers
         marlin_vars_t *vars = marlin_vars();
-        // check if the variables filename and filepath are allocated
+        //check if the variables filename and filepath are allocated
         if (vars->media_SFN_path != nullptr && vars->media_LFN != nullptr) {
             if (find_latest_gcode(
                     vars->media_SFN_path,
@@ -158,31 +156,40 @@ void screen_home_data_t::windowEvent(EventLock /*has private ctor*/, window_t *s
 }
 
 static bool find_latest_gcode(char *fpath, int fpath_len, char *fname, int fname_len) {
+    DIR dir = { 0 };
 
-    fname[0] = 0;
-    strlcpy(fpath, "/usb", fpath_len);
-    time_t latest_time = 0;
-    F_DIR_RAII_Iterator dir(fpath);
-    fpath[4] = '/';
-
-    if (dir.result == ResType::NOK) {
+    FRESULT result = f_opendir(&dir, "/");
+    if (result != FR_OK) {
         return false;
     }
 
-    while (dir.FindNext()) {
-        // skip folders
-        if ((dir.fno->d_type & DT_DIR) != 0) {
-            continue;
-        }
-        bool is_newer = latest_time < dir.fno->time;
+    fname[0] = 0;
+    WORD latest_fdate = 0;
+    WORD latest_ftime = 0;
+    FILINFO current_finfo = { 0 };
 
-        if (is_newer) {
-            strlcpy(fpath + 5, dir.fno->d_name, fpath_len - 5);
-            strlcpy(fname, dir.fno->lfn, fname_len);
+    result = f_findfirst(&dir, &current_finfo, "", "*.gcode");
+    while (result == FR_OK && current_finfo.fname[0]) {
+        bool skip = current_finfo.fattrib & AM_SYS
+            || current_finfo.fattrib & AM_HID;
+        bool is_newer = latest_fdate != current_finfo.fdate
+            ? latest_fdate < current_finfo.fdate
+            : latest_ftime < current_finfo.ftime;
+
+        if ((fname[0] == 0 || is_newer) && !skip) {
+            const char *short_name = current_finfo.altname[0] ? current_finfo.altname : current_finfo.fname;
+            fpath[0] = '/';
+            strlcpy(fpath + 1, short_name, fpath_len - 1);
+            strlcpy(fname, current_finfo.fname, fname_len);
+            latest_fdate = current_finfo.fdate;
+            latest_ftime = current_finfo.ftime;
         }
+
+        result = f_findnext(&dir, &current_finfo);
     }
 
-    return fname[0] != 0;
+    f_closedir(&dir);
+    return result == FR_OK && fname[0] != 0 ? true : false;
 }
 
 void screen_home_data_t::printBtnEna() {

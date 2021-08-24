@@ -7,7 +7,7 @@
 // M20 - List SD card
 void GcodeSuite::M20() {
     SERIAL_ECHOLNPGM(MSG_BEGIN_FILE_LIST);
-    f_DIR dir = { 0 };
+    DIR dir = { 0 };
     FRESULT result = f_opendir(&dir, "/");
     if (result == FR_OK) {
         FILINFO current_finfo = { 0 };
